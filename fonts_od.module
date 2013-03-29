@@ -1,0 +1,174 @@
+<?php
+/**
+ * @file
+ * Base module file for fonts_od
+ *
+ * @defgroup fonts_od Fonts On Demand
+ * @{
+ */
+
+/**
+ * @var FONTS_OD_SANS_SERIF
+ */
+define('FONTS_OD_SANS_SERIF', 'sans-serif');
+/**
+ * @var FONTS_OD_SERIF
+ */
+define('FONTS_OD_SERIF', 'serif');
+/**
+ * @var FONTS_OD_MONOSPACE
+ */
+define('FONTS_OD_MONOSPACE', 'monospace');
+
+
+function fonts_od_defaults() {
+  $defaults = array(
+    'file path' => path_to_theme() . '/fonts',
+    'formats' => array(
+      'woff' => '.woff',
+      'truetype' => '.ttf',
+      'svg' => '.svg',
+      'embedded-opentype' => '.eot',
+    ),
+    'fallbacks' => array(
+      'serif'       => array('Times New Roman', 'Georgia', 'serif'),
+      'sans-serif'  => array('Arial', 'Verdana', 'san-serif'),
+      'monospace'   => array('Courier New', 'Lucida Console', 'monospace'),
+    ),
+  );
+  drupal_alter('fonts_od_defaults_alter', $defaults);
+  return $defaults;
+}
+
+/**
+ * Return all fonts available to be used on-demand
+ *
+ * @param type $string
+ *   description
+ *
+ * @return array
+ */
+function fonts_od_fonts() {
+  if (($caching = variable_get('cache', FALSE))) {
+    if ($cache = cache_get('fonts_od:fonts', 'cache')) {
+      $fonts = empty($cache->data) ? NULL : $cache->data;
+    }
+    else {
+      // Set the default values
+      $fonts = array();
+      $cache = (object) array('data' => array());
+    }
+  }
+  if (empty($fonts)) {
+
+    // Calculate the value of $fonts now...
+    $defaults = fonts_od_defaults();
+    $info     = module_invoke_all('fonts_od_fonts');
+
+    $fonts = array();
+    foreach ($info as $i) {
+      $i += array_intersect_key($defaults, array_flip(array('file path')));
+      $ext = implode('|', $defaults['formats']);
+      $files = file_scan_directory('./' . $i['file path'], '/(' . $ext . ')$/');
+      $i['extensions'] = array();
+      foreach ($files as $key => $data) {
+        if ($data->name !== $i['basename']) {
+          unset($files[$key]);
+        }
+        else {
+          $extension = str_replace($data->name, '', $data->filename);
+          $i['extensions'][] = $extension;
+          $type = array_search($extension, $defaults['formats']);
+          $i['files'][$type] = $key;
+
+          //font-family
+          $i['font-family'] = $defaults['fallbacks'][$i['family']];
+          array_unshift($i['font-family'], $i['title']);
+          $i['font-family'] = fonts_od_implode($i['font-family']);
+        }
+      }
+      $fonts[$i['name']] = $i + array(
+        'download url' => NULL,
+        'font-family' => NULL,
+        'name' => NULL,
+        'title' => NULL,
+        'family' => FONTS_OD_SERIF,
+        'basename' => NULL,
+        'file path' => NULL,
+      );
+    }
+
+    if ($caching) {
+      cache_set('fonts_od:fonts', $fonts, 'cache', CACHE_PERMANENT);
+    }
+  }
+  return $fonts;
+}
+
+/**
+ * Add a font by name, title or font-family string
+ *
+ * @param string $font
+ *   The human title of a font or the font-family declaration; all of these are
+     valid:
+
+     fontin_sans_small_caps
+     Fontin Sans Small Caps
+     "Fontin Sans Small Caps", Arial, Georgia, sans-serif
+ *
+ * @return $string or FALSE
+ *   The string is the font-family directive including fallback fonts
+ *
+ * @see fonts_od_add_font_by_machine_name()
+ */
+function fonts_od_add_font($font) {
+  $info = fonts_od_fonts();
+  foreach ($info as $i) {
+    if ($i['title'] == $font
+        || $i['name'] == $font
+        || $i['font-family'] == $font) {
+
+      $family = explode(',', $i['font-family']);
+      $family = $family[0];
+
+      // Generate the @font-face markup
+      $output = '';
+      $output .= "@font-face{font-family:$family;src:";
+      foreach ($i['files'] as $format => $file) {
+        $file = url($file);
+        $output .= "url('$file') format('$format'),";
+      }
+      $output = trim($output, ',') . '}';
+      drupal_add_css($output, 'inline');
+      return $i['font-family'];
+    }
+  }
+  watchdog('fonts_od', 'Font %font not found', array(
+    '%font' => $font,
+  ));
+  return FALSE;
+}
+
+/**
+ * Implode a font-family array into style string, adding quotes and commas
+ *
+ * @param array
+ *
+ * @param string
+ */
+function fonts_od_implode($families) {
+  foreach ($families as $key => $value) {
+    $value = trim($value);
+    if (strpos($value, ' ') !== FALSE) {
+      $families[$key] = '"' . $value . '"';
+    }
+  }
+  return implode(', ', $families);
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ */
+function fonts_od_flush_caches() {
+  fonts_od_fonts();
+}
