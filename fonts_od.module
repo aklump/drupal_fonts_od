@@ -80,6 +80,7 @@ function fonts_od_fonts_od_info_alter(&$info) {
       continue;
     }
 
+
     // Smart auto naming
     $name_base = $data->name;
     $name_base = strtolower($name_base);
@@ -96,6 +97,20 @@ function fonts_od_fonts_od_info_alter(&$info) {
     drupal_alter('fonts_od_name', $name_base);
     $name_base = trim($name_base);
 
+    // smart weight
+    if (strpos($name_base, 'bold')) {
+      $weight = 'bold';
+    }
+    elseif (strpos($name_base, 'light')) {
+      $weight = 'lighter';
+    }
+    else {
+      $weight = 'normal';
+    }
+
+    // smart style
+    $style = strpos($name_base, 'italic') === FALSE ? 'normal' : 'italic';
+
     $name = str_replace(' ', '_', $name_base);
     $title = ucwords($name_base);
 
@@ -106,6 +121,8 @@ function fonts_od_fonts_od_info_alter(&$info) {
       'family' => FONTS_OD_SANS_SERIF,
       'basename' => $data->name,
       'file path' => drupal_dirname($data->uri),
+      'font-weight' => $weight,
+      'font-style' => $style,
     );
     $index[$data->name] = key($info);
   }
@@ -151,7 +168,7 @@ function fonts_od_fonts() {
           $extension = str_replace($data->name, '', $data->filename);
           $i['extensions'][] = $extension;
           $type = array_search($extension, $defaults['formats']);
-          $i['files'][$type] = $key;
+          $i['files'][$type] = trim($key, '/.');
 
           //font-family
           $i['font-family'] = $defaults['fallbacks'][$i['family']];
@@ -159,6 +176,14 @@ function fonts_od_fonts() {
           $i['font-family'] = fonts_od_implode($i['font-family']);
         }
       }
+
+      // Get the svg id if svg font
+      if (!empty($i['files']['svg'])
+          && ($svg = file_get_contents($i['files']['svg']))
+          && preg_match('/font +id\=(?:\'|")([^"\']+)(?:\'|")/i', $svg, $found)) {
+        $i['svg_id'] = $found[1];
+      }
+
       $fonts[$i['name']] = $i + array(
         'download url' => NULL,
         'font-family' => NULL,
@@ -167,6 +192,9 @@ function fonts_od_fonts() {
         'family' => FONTS_OD_SERIF,
         'basename' => NULL,
         'file path' => NULL,
+        'font-style' => 'normal',
+        'font-weight' => 'normal',
+        'svg_id' => NULL,
       );
     }
 
@@ -205,14 +233,25 @@ function fonts_od_add_font($font) {
       $family = explode(',', $i['font-family']);
       $family = $family[0];
 
-      // Generate the @font-face markup
-      $output = '';
-      $output .= "@font-face{font-family:$family;src:";
-      foreach ($i['files'] as $format => $file) {
-        $file = url($file);
-        $output .= "url('$file') format('$format'),";
-      }
-      $output = trim($output, ',') . '}';
+      $eot  = url($i['files']['embedded-opentype']);
+      $woff = url($i['files']['woff']);
+      $ttf  = url($i['files']['truetype']);
+      $svg  = url($i['files']['svg']);
+      $id   = $i['svg_id'];
+
+      // Generate the @font-face markup based on www.fontsquirrel.com generator
+      $output = <<<EOD
+@font-face {
+  font-family: {$family};
+  src: url('{$eot}');
+  src: url('{$eot}?#iefix') format('embedded-opentype'),
+       url('{$woff}') format('woff'),
+       url('{$ttf}') format('truetype'),
+       url('{$svg}#{$id}') format('svg');
+  font-weight: {$i['font-weight']};
+  font-style: {$i['font-style']};
+}
+EOD;
       drupal_add_css($output, 'inline');
       return $i['font-family'];
     }
