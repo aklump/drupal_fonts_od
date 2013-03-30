@@ -15,9 +15,12 @@ function hook_fonts_od_defaults_alter(&$defaults) {
 }
 
 /**
- * Implements hook_fonts_od_fonts().
+ * Implements hook_fonts_od_info().
+ *
+ * Implicitly provide font information
  *
  * @return array
+ *   Keys are the basename!
  *   - download url: where the font was sourced from
  *   - name: the machine name
  *   - title: the human title, also becomes the font family
@@ -27,9 +30,9 @@ function hook_fonts_od_defaults_alter(&$defaults) {
      active theme. Use this if you need to specific a different location for your
      font.
  */
-function hook_fonts_od_fonts() {
+function hook_fonts_od_info() {
   return array(
-    array(
+    'fontin_sans_sc_45b-webfont' => array(
       'download url' => 'http://www.fontsquirrel.com/fonts/Fontin-Sans',
       'name' => 'fontin_sans_small_caps',
       'title' => 'Fontin Sans Small Caps',
@@ -38,6 +41,60 @@ function hook_fonts_od_fonts() {
       'file path' => drupal_get_path('theme', 'gop3_theme') . '/fonts/fontin-sans',
     ),
   );
+}
+
+/**
+ * Implements hook_fonts_od_info_alter(&$info).
+ *
+ * Set the correct font family of auto-detected fonts. Alter the information
+   provided by modules about available fonts.
+ */
+function hook_fonts_od_info_alter(&$info) {
+  $info['Enriqueta-Bold-webfont']['family'] = FONTS_OD_SERIF;
+  $info['Enriqueta-Regular-webfont']['family'] = FONTS_OD_SERIF;
+}
+
+/**
+ * Implements hook_fonts_od_name_alter(&$name).
+ *
+ * Influence the automatic naming of fonts
+ *
+ * @param string &$name
+ *   An all lowercase string generated from the filename
+ */
+function hook_fonts_od_name_alter(&$name) {
+  $name = trim(str_replace('45b', '', $name));
+  switch ($name) {
+    case 'fontin sans bi':
+      $name = 'fontin sans bold italic';
+      break;
+    case 'fontin sans i':
+      $name = 'fontin sans italic';
+      break;
+    case 'fontin sans b':
+      $name = 'fontin sans bold';
+      break;
+    case 'fontin sans r':
+      $name = 'fontin sans';
+      break;
+    case 'fontin sans sc':
+      $name = 'fontin sans small caps';
+      break;
+    default:
+      $name = str_replace('opensans', 'open sans', $name);
+      break;
+  }
+}
+
+/**
+ * Implements hook_fonts_od_fonts_alter(&$fonts).
+ *
+ * Alter the final font information before it gets cached such as 'download url'
+ *
+ * @param array &$fonts
+ */
+function hook_fonts_od_fonts_alter(&$fonts) {
+
 }
 
 /** @} */ //end of group hooks

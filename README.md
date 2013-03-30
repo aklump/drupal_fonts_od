@@ -1,7 +1,13 @@
 ##Summary
-This module allows you to programatically add @font-face fonts to a page "on-demand".  _What's the point?_  If you want to have many fonts available without the overhead of loading them all on each page, you should use this module.  Or if the font changes based on server logic, you should use this module.
+This module allows you to programatically add @font-face fonts to a page "on-demand".  _What's the point?_  If you want to have many fonts available without the overhead of loading them all on each page, you should use this module.  Or if the font changes based on server logic, you should use this module.  Since we can't depend on browser consistency for when the fonts are loaded; why not head them off at the pass?
 
-##Requirements
+Here are some links related to the rationalle behind this module.
+<http://www.stevesouders.com/blog/2009/10/13/font-face-and-performance/>
+<http://paulirish.com/2009/fighting-the-font-face-fout/>
+<http://sixrevisions.com/css/font-face-web-fonts-issues/>
+
+##Rationalle
+In our use case, we had a node field that allowed the admins to type in a font name.  Then the node would render in that font.  We used pre_process hooks and `fonts_od_add_font()` based on the node field value to include the  @font-face font.  The admins had hundreds of fonts available to them, and we never new what they would choose, so the dynamic loading idea birthed this module.
 
 
 ##Installation

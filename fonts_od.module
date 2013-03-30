@@ -20,10 +20,24 @@ define('FONTS_OD_SERIF', 'serif');
  */
 define('FONTS_OD_MONOSPACE', 'monospace');
 
+/**
+ * Implements hook_menu().
+ */
+function fonts_od_menu() {
+  $items['admin/reports/fonts'] = array(
+    'title' => 'On-Demand Fonts',
+    'description' => 'View information about registered on-demand fonts',
+    'page callback' => 'fonts_od_fonts_page',
+    'access arguments' => array('administer content'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/fonts_od.pages.inc',
+  );
+  return $items;
+}
 
 function fonts_od_defaults() {
   $defaults = array(
-    'file path' => path_to_theme() . '/fonts',
+    'file path' => drupal_get_path('theme', variable_get('theme_default', '')) . '/fonts',
     'formats' => array(
       'woff' => '.woff',
       'truetype' => '.ttf',
@@ -36,8 +50,65 @@ function fonts_od_defaults() {
       'monospace'   => array('Courier New', 'Lucida Console', 'monospace'),
     ),
   );
-  drupal_alter('fonts_od_defaults_alter', $defaults);
+  drupal_alter('fonts_od_defaults', $defaults);
   return $defaults;
+}
+
+/**
+ * Implements hook_fonts_od_info_alter().
+ *
+ * @param array &$fonts
+ *
+ * @return NULL
+ */
+function fonts_od_fonts_od_info_alter(&$info) {
+
+  // Auto load fonts from our default theme/fonts folder
+
+  // Create an index of fonts already registered
+  $index = array();
+  foreach ($info as $key => $data) {
+    $index[$data['basename']] = $key;
+  }
+
+  // No auto load
+  $defaults = fonts_od_defaults();
+  $ext = implode('|', $defaults['formats']);
+  $files = file_scan_directory('./' . $defaults['file path'], '/(' . $ext . ')$/');
+  foreach ($files as $data) {
+    if (array_key_exists($data->name, $index)) {
+      continue;
+    }
+
+    // Smart auto naming
+    $name_base = $data->name;
+    $name_base = strtolower($name_base);
+    $name_base = preg_replace('/[^a-z0-9]/', ' ', $name_base);
+    $name_base = str_replace('webfont', ' ', $name_base);
+    $name_base = str_replace('regular', '', $name_base);
+    $name_base = str_replace('mediumitalic', 'medium italic', $name_base);
+    $name_base = str_replace('bolditalic', 'bold italic', $name_base);
+    $name_base = str_replace('lightitalic', 'light italic', $name_base);
+    $name_base = str_replace('extrabold', 'extra bold', $name_base);
+    $name_base = str_replace('lightbold', 'light bold', $name_base);
+    $name_base = str_replace('webfont', ' ', $name_base);
+    $name_base = trim($name_base);
+    drupal_alter('fonts_od_name', $name_base);
+    $name_base = trim($name_base);
+
+    $name = str_replace(' ', '_', $name_base);
+    $title = ucwords($name_base);
+
+    $info[$data->name] = array(
+      'name' => $name,
+      'title' => $title,
+      //@todo a smarter way to guess family?
+      'family' => FONTS_OD_SANS_SERIF,
+      'basename' => $data->name,
+      'file path' => drupal_dirname($data->uri),
+    );
+    $index[$data->name] = key($info);
+  }
 }
 
 /**
@@ -63,7 +134,8 @@ function fonts_od_fonts() {
 
     // Calculate the value of $fonts now...
     $defaults = fonts_od_defaults();
-    $info     = module_invoke_all('fonts_od_fonts');
+    $data     = module_invoke_all('fonts_od_info');
+    drupal_alter('fonts_od_info', $info);
 
     $fonts = array();
     foreach ($info as $i) {
@@ -97,6 +169,8 @@ function fonts_od_fonts() {
         'file path' => NULL,
       );
     }
+
+    drupal_alter('fonts_od_fonts', $fonts);
 
     if ($caching) {
       cache_set('fonts_od:fonts', $fonts, 'cache', CACHE_PERMANENT);
