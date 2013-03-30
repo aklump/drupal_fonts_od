@@ -134,7 +134,7 @@ function fonts_od_fonts() {
 
     // Calculate the value of $fonts now...
     $defaults = fonts_od_defaults();
-    $data     = module_invoke_all('fonts_od_info');
+    $info     = module_invoke_all('fonts_od_info');
     drupal_alter('fonts_od_info', $info);
 
     $fonts = array();
