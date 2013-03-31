@@ -32,9 +32,31 @@ function fonts_od_menu() {
     'type' => MENU_NORMAL_ITEM,
     'file' => 'includes/fonts_od.pages.inc',
   );
+  $items['admin/reports/fonts/%'] = array(
+    'title callback' => '_fonts_od_menu_details_title',
+    'title arguments' => array(3),
+    'title' => 'Details',
+    'description' => 'View detailed font information',
+    'page callback' => 'fonts_od_font_detail_page',
+    'page arguments' => array(3),
+    'access arguments' => array('administer content'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/fonts_od.pages.inc',
+  );
   return $items;
 }
 
+/**
+ * Return the page title based on a font key
+ */
+function _fonts_od_menu_details_title($name) {
+  if ($font = fonts_od_get_font($name)) {
+    return t('Font Details: @name', array(
+      '@name' => $font['title'],
+    ));
+  }
+  return t('Font Details');
+}
 function fonts_od_defaults() {
   $defaults = array(
     'file path' => drupal_get_path('theme', variable_get('theme_default', '')) . '/fonts',
@@ -129,12 +151,22 @@ function fonts_od_fonts_od_info_alter(&$info) {
 }
 
 /**
+ * Return a font by machine name
+ *
+ * @param string $name
+ *
+ * @return array or FALSE
+ */
+function fonts_od_get_font($name) {
+  $info = fonts_od_fonts();
+  return array_key_exists($name, $info) ? $info[$name] : FALSE;
+}
+
+/**
  * Return all fonts available to be used on-demand
  *
- * @param type $string
- *   description
- *
  * @return array
+ *   Keyed by font machine name
  */
 function fonts_od_fonts() {
   if (($caching = variable_get('cache', FALSE))) {
@@ -284,4 +316,24 @@ function fonts_od_implode($families) {
  */
 function fonts_od_flush_caches() {
   fonts_od_fonts();
+}
+
+/**
+ * Return the sass markup of a font
+ *
+ * @param array $font
+ *   The font array
+ *
+ * @return string
+ */
+function fonts_od_get_sass($font) {
+  //http://compass-style.org/reference/compass/css3/font_face/
+  $theme = variable_get('theme_default', path_to_theme());
+  foreach ($font['files'] as $key => $value) {
+    $font['files'][$key] = trim(str_replace(drupal_get_path('theme', $theme) .'/fonts', '', $value), '/');
+  }
+
+  return <<<EOD
+@include font-face("{$font['title']}", font-files("{$font['files']['woff']}", "{$font['files']['truetype']}", "{$font['files']['svg']}", "{$font['files']['embedded-opentype']}"), '{$font['svg_id']}', '{$font['font-weight']}', '{$font['font-style']}');
+EOD;
 }
