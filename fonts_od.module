@@ -21,6 +21,22 @@ define('FONTS_OD_SERIF', 'serif');
 define('FONTS_OD_MONOSPACE', 'monospace');
 
 /**
+ * Implements hook_permission().
+ */
+function fonts_od_permission() {
+  return array(
+    //'fonts_od:administer' => array(
+    //  'title' => t('Administer Fonts On-Demand'),
+    //  'description' => t('Perform administration tasks for Fonts On-Demand.'),
+    //),
+    'fonts_od:view' => array(
+      'title' => t('View On-Demand Fonts'),
+      'description' => t('View information about On-Demand Fonts.'),
+    ),
+  );
+}
+
+/**
  * Implements hook_menu().
  */
 function fonts_od_menu() {
@@ -28,7 +44,7 @@ function fonts_od_menu() {
     'title' => 'On-Demand Fonts',
     'description' => 'View information about registered on-demand fonts',
     'page callback' => 'fonts_od_fonts_page',
-    'access arguments' => array('administer content'),
+    'access arguments' => array('fonts_od:view'),
     'type' => MENU_NORMAL_ITEM,
     'file' => 'includes/fonts_od.pages.inc',
   );
@@ -39,7 +55,7 @@ function fonts_od_menu() {
     'description' => 'View detailed font information',
     'page callback' => 'fonts_od_font_detail_page',
     'page arguments' => array(3),
-    'access arguments' => array('administer content'),
+    'access arguments' => array('fonts_od:view'),
     'type' => MENU_NORMAL_ITEM,
     'file' => 'includes/fonts_od.pages.inc',
   );
@@ -101,7 +117,6 @@ function fonts_od_fonts_od_info_alter(&$info) {
     if (array_key_exists($data->name, $index)) {
       continue;
     }
-
 
     // Smart auto naming
     $name_base = $data->name;
@@ -216,6 +231,7 @@ function fonts_od_fonts() {
         $i['svg_id'] = $found[1];
       }
 
+      //@todo the $i['name'] is undefined under certain conditions; fix
       $fonts[$i['name']] = $i + array(
         'download url' => NULL,
         'font-family' => NULL,
