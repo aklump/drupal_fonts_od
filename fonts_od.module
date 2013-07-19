@@ -40,7 +40,7 @@ function fonts_od_permission() {
  * Implements hook_menu().
  */
 function fonts_od_menu() {
-  $items['admin/reports/fonts'] = array(
+  $items['admin/appearance/fonts'] = array(
     'title' => 'On-Demand Fonts',
     'description' => 'View information about registered on-demand fonts',
     'page callback' => 'fonts_od_fonts_page',
@@ -48,7 +48,7 @@ function fonts_od_menu() {
     'type' => MENU_NORMAL_ITEM,
     'file' => 'includes/fonts_od.pages.inc',
   );
-  $items['admin/reports/fonts/%'] = array(
+  $items['admin/appearance/fonts/%'] = array(
     'title callback' => '_fonts_od_menu_details_title',
     'title arguments' => array(3),
     'title' => 'Details',
@@ -73,6 +73,14 @@ function _fonts_od_menu_details_title($name) {
   }
   return t('Font Details');
 }
+
+/**
+ * Return default values for a single font definition array
+ *
+ * @return array
+ *
+ * @see hook_fonts_od_defaults_alter().
+ */
 function fonts_od_defaults() {
   $defaults = array(
     'file path' => drupal_get_path('theme', variable_get('theme_default', '')) . '/fonts',
@@ -89,6 +97,7 @@ function fonts_od_defaults() {
     ),
   );
   drupal_alter('fonts_od_defaults', $defaults);
+
   return $defaults;
 }
 
@@ -233,6 +242,7 @@ function fonts_od_fonts() {
 
       //@todo the $i['name'] is undefined under certain conditions; fix
       $fonts[$i['name']] = $i + array(
+        'module' => 'fonts_od',
         'download url' => NULL,
         'font-family' => NULL,
         'name' => NULL,
@@ -253,6 +263,49 @@ function fonts_od_fonts() {
     }
   }
   return $fonts;
+}
+
+/**
+ * Implements hook_fonts_od_info().
+ *
+ * Implicitly provide font information
+ *
+ * @return array
+ *   Keys are the basename!
+ *   - download url: where the font was sourced from
+ *   - name: the machine name
+ *   - title: the human title, also becomes the font family
+ *   - family: FONTS_OD_SANS_SERIF, FONTS_OD_SERIF, FONTS_OD_MONOSPACE
+ *   - basename: the basename of the font without extension
+ *   - file path: (Optional) This defaults to a folder called 'fonts' inside the
+     active theme. Use this if you need to specific a different location for your
+     font.
+ */
+function fonts_od_fonts_od_info() {
+  $info = &drupal_static(__FUNCTION__, array());
+  if (empty($info)) {
+    if (module_exists('fontyourface')) {
+      $fonts = fontyourface_get_fonts('enabled = 1');
+      foreach ($fonts as $font) {
+        $meta = unserialize($font->metadata);
+        $machine = pathinfo($font->url);
+        $machine = $machine['basename'];
+        $info[$machine] = array(
+          'module' => 'fontyourface',
+          'download url' => $font->url,
+          'name' => $machine,
+          'title' => $font->name,
+          'family' => '',
+          'basename' => '',
+          'file path' => $font->fid,
+          'font-weight' => $font->css_weight,
+          'font-style' => $font->css_style,
+          'font-family' => $font->css_family,
+        );
+      }
+    }
+  }
+  return $info;
 }
 
 /**
@@ -278,29 +331,39 @@ function fonts_od_add_font($font) {
         || $i['name'] == $font
         || $i['font-family'] == $font) {
 
-      $family = explode(',', $i['font-family']);
-      $family = $family[0];
+      switch ($i['module']) {
+        case 'fonts_od':
+          $family = explode(',', $i['font-family']);
+          $family = $family[0];
 
-      $eot  = url($i['files']['embedded-opentype']);
-      $woff = url($i['files']['woff']);
-      $ttf  = url($i['files']['truetype']);
-      $svg  = url($i['files']['svg']);
-      $id   = $i['svg_id'];
+          $eot  = url($i['files']['embedded-opentype']);
+          $woff = url($i['files']['woff']);
+          $ttf  = url($i['files']['truetype']);
+          $svg  = url($i['files']['svg']);
+          $id   = $i['svg_id'];
 
-      // Generate the @font-face markup based on www.fontsquirrel.com generator
-      $output = <<<EOD
+          // Generate the @font-face markup based on www.fontsquirrel.com generator
+          $output = <<<EOD
 @font-face {
-  font-family: {$family};
-  src: url('{$eot}');
-  src: url('{$eot}?#iefix') format('embedded-opentype'),
-       url('{$woff}') format('woff'),
-       url('{$ttf}') format('truetype'),
-       url('{$svg}#{$id}') format('svg');
-  font-weight: {$i['font-weight']};
-  font-style: {$i['font-style']};
+font-family: {$family};
+src: url('{$eot}');
+src: url('{$eot}?#iefix') format('embedded-opentype'),
+   url('{$woff}') format('woff'),
+   url('{$ttf}') format('truetype'),
+   url('{$svg}#{$id}') format('svg');
+font-weight: {$i['font-weight']};
+font-style: {$i['font-style']};
 }
 EOD;
-      drupal_add_css($output, 'inline');
+          drupal_add_css($output, 'inline');
+          break;
+
+        case 'fontyourface':
+          $font = fontyourface_get_font($i['file path']);
+          fontyourface_font_registry($font);
+          break;
+      }
+
       return $i['font-family'];
     }
   }

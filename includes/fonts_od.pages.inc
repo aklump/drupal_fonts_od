@@ -19,13 +19,23 @@ function fonts_od_fonts_page() {
     $rows = array();
     $example = 'The quick brown fox';
     foreach ($fonts as $i) {
-      //fonts_od_add_font($i['name']);
+      switch ($i['module']) {
+        case 'fonts_od':
+          $info_link = 'admin/appearance/fonts/' . $i['name'];
+          break;
+        case 'fontyourface':
+          $info_link = 'admin/appearance/fontyourface/edit/' . $i['file path'];
+          break;
+      }
+
       $row = array(
         'data' => array(
           ($i['download url'] ? l($i['title'], $i['download url']) : $i['title']),
           $i['family'],
           $i['font-family'],
-          l('info', 'admin/reports/fonts/' . $i['name']),
+          l('Edit', $info_link, array(
+            'query' => drupal_get_destination(),
+          )),
           //'<div style="font-family: ' . $i['font-family'] . '">' . $example . '</div>',
         ),
       );
@@ -35,7 +45,7 @@ function fonts_od_fonts_page() {
     $build[] = array(
       '#theme' => 'table',
       '#rows' => $rows,
-      '#header' => array(t('Font Name'), t('Family'), t('font-family'), t('Details')/*, t('Example')*/),
+      '#header' => array(t('Font Name'), t('Family'), t('Fallback Fonts'), t('Operations')/*, t('Example')*/),
     );
   }
   return $build;

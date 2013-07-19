@@ -20,7 +20,7 @@ function hook_fonts_od_defaults_alter(&$defaults) {
  * Implicitly provide font information
  *
  * @return array
- *   Keys are the basename!
+ *   Keys are the basename! This should be unique from all fonts.
  *   - download url: where the font was sourced from
  *   - name: the machine name
  *   - title: the human title, also becomes the font family
