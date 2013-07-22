@@ -127,6 +127,7 @@ function fonts_od_edit_form_submit($form, &$form_state) {
       drupal_set_message(t('The overridden values for %name have been removed.', array(
         '%name' => $form_state['values']['db']['title'],
       )));
+      cache_clear_all('fonts_od:fonts', 'cache');
       break;
     default:
       $form_state['values']['db']['fallback'] = array_filter(explode(',', $form_state['values']['db']['fallback']));
