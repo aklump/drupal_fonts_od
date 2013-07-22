@@ -35,16 +35,19 @@ Here is some sample code:
       $build = array();
       // Check if today is a saturday or sunday
       if (($dow = date('N')) && ($dow == 6 || $dow == 7)) {
-        $family = fonts_od_add_font('Weekend Font');  
+        $style = fonts_od_add_font('Weekend Font');  
       }
       else {
-        $family = fonts_od_add_font('Weekday Font');
+        $style = fonts_od_add_font('Weekday Font');
       }
-      $build[] = array('#markup' => '<div style="font-family: ' . $family . ';">' . t('This will be displayed in our chosen font based on if this is a weekend or not.') . '</div>');
+      $build[] = array('#markup' => '<div style="' . $style . ';">' . t('This will be displayed in our chosen font based on if this is a weekend or not.') . '</div>');
       return $build;
     }
     ?>
-    
+
+
+##TypeKit.com Integration
+Even though you may only enable one font in a given TypeKit kit, the entire kit is loaded.  It's just the way TypeKit works.  So, keep your kits lean and make more kits with one or two fonts, rather than few with many fonts.    
 
 
 ##API

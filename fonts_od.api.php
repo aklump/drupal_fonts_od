@@ -9,6 +9,8 @@
 
 /**
  * Implements hook_fonts_od_defaults_alter().
+ *
+ * @param array &$defaults
  */
 function hook_fonts_od_defaults_alter(&$defaults) {
   $defaults['fallbacks']['sans-serif'] = array('Arial', 'Georgia', 'san-serif');
@@ -48,6 +50,8 @@ function hook_fonts_od_info() {
  *
  * Set the correct font family of auto-detected fonts. Alter the information
    provided by modules about available fonts.
+
+   @param array &$info
  */
 function hook_fonts_od_info_alter(&$info) {
   $info['Enriqueta-Bold-webfont']['family'] = FONTS_OD_SERIF;
@@ -95,6 +99,21 @@ function hook_fonts_od_name_alter(&$name) {
  */
 function hook_fonts_od_fonts_alter(&$fonts) {
 
+}
+
+/**
+ * Implements hook_fonts_od_add_font().
+ *
+ * Allow modules to do their own processing in response to adding a font
+ *
+ * @param array &$font
+ * @param bool &$processed
+ *   Set this to true if your module has completed the processing of adding the
+     font; when this is true, nothing further is done by the base fonts_od
+     module.
+ */
+function hook_fonts_od_add_font(&$font, &$processed) {
+  // Act on the adding of a font to the page
 }
 
 /** @} */ //end of group hooks

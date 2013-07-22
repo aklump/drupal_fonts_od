@@ -1,0 +1,165 @@
+<?php
+/**
+ * @file
+ * Base module file for fonts_od_fontyourface
+ *
+ * @defgroup fonts_od_fontyourface Fonts On-Demand @fontyourface Integration
+ * @{
+ */
+
+/**
+ * Implements hook_fonts_od_info().
+ *
+ * Implicitly provide font information
+ *
+ * @return array
+ *   Keys are the basename!
+ *   - download url: where the font was sourced from
+ *   - name: the machine name
+ *   - title: the human title, also becomes the font family
+ *   - family: FONTS_OD_SANS_SERIF, FONTS_OD_SERIF, FONTS_OD_MONOSPACE
+ *   - basename: the basename of the font without extension
+ *   - file path: (Optional) This defaults to a folder called 'fonts' inside the
+     active theme. Use this if you need to specific a different location for your
+     font.
+ */
+function fonts_od_fontyourface_fonts_od_info() {
+  $info = &drupal_static(__FUNCTION__, array());
+  if (empty($info)) {
+    $fonts = fontyourface_get_fonts('enabled = 1');
+    foreach ($fonts as $font) {
+      $meta = unserialize($font->metadata);
+      $machine = fonts_od_fontyourface_get_name($font);
+      $info[$machine] = array(
+        'module' => 'fontyourface',
+        'download url' => $font->url,
+        'name' => $machine,
+        'title' => $font->name,
+        'family' => '',
+        'basename' => '',
+        'file path' => $font->fid,
+        'font-weight' => $font->css_weight,
+        'font-style' => $font->css_style,
+        'font-family' => fonts_od_implode(array($font->css_family)),
+      );
+    }
+  }
+  return $info;
+}
+
+/**
+ * Implements hook_fonts_od_add_font().
+ *
+ * @param array $font
+ * @param bool &$processed
+ *   Set this to true if your module has completed the processing of adding the
+     font; when this is true, nothing further is done by the base fonts_od
+     module.
+ */
+function fonts_od_fontyourface_fonts_od_add_font(&$font, &$processed) {
+  if ($font['module'] == 'fontyourface') {
+    $font = fontyourface_get_font($font['file path']);
+    fontyourface_font_registry($font);
+    $processed = TRUE;
+  }
+}
+
+/**
+ * Return the name of the fontyourface font for fonts_od purposes
+ *
+ * @param int | array $font
+ *   The fid or the array return value of fontyourface_get_font();
+ *
+ * @return string
+ */
+function fonts_od_fontyourface_get_name($font) {
+  if (is_numeric($font)) {
+    $font = fontyourface_get_font($font);
+  }
+
+  $name = '';
+  if (isset($font->url)) {
+    $name = pathinfo($font->url);
+    $name = $name['basename'];
+  }
+  $name = drupal_clean_css_identifier($name);
+
+  return $name;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function fonts_od_fontyourface_form_fontyourface_ui_settings_form_alter(&$form, $form_state, $form_id) {
+  if (module_exists('typekit_api')) {
+    $form['#submit'][] = '_fonts_od_fontyourface_prune_typekit_fonts';
+  }
+}
+
+/**
+ * Remove any fonts stored in the database that are not currently in Typekit
+   kits.
+ */
+function _fonts_od_fontyourface_prune_typekit_fonts() {
+
+  // Get current typekit fonts from typekit.com
+  $kits = typekit_api_get_kits();
+  $keepers = array();
+  foreach ($kits as $kit) {
+
+    $kit_info = typekit_api_get_kit($kit->id);
+    if (typekit_api_kit_matches_domain($kit_info, $_SERVER['HTTP_HOST'])) {
+
+      foreach ($kit_info->families as $family_info) {
+        foreach ($family_info->variations as $variant_index => $variant_id) {
+          $keepers[] = 'http://typekit.com/fonts/' . $family_info->slug . '#' . $variant_id;
+        }
+      }
+    }
+  }
+
+  // Get a list of all typekit_api fonts store in the db
+  $in_db = db_select('fontyourface_font', 'f')
+    ->fields('f', array('url'))
+    ->condition('provider', 'typekit_api')
+    ->execute()->fetchCol();
+
+  // Compute difference and remove those fonts that are set to be synchronized
+  $delete = array_diff($in_db, $keepers);
+  foreach ($delete as $url) {
+    db_delete('fontyourface_font')
+      ->condition('url', $url)
+      ->execute();
+
+    fontyourface_log('Removed Typekit variant: @url', array('@url' => $url));
+  }
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function fonts_od_fontyourface_preprocess_page(&$vars) {
+  if (isset($vars['page']['content']['system_main']['#id'])
+      && $vars['page']['content']['system_main']['#id'] == 'fonts_od_fonts_page') {
+    $build = &$vars['page']['content']['system_main'][0];
+    foreach ($build['#rows'] as $key => $value) {
+      $ops = array();
+      switch ($build['#fonts'][$key]['module'] ) {
+        case 'fontyourface':
+          $font = fontyourface_get_font($build['#fonts'][$key]['file path']);
+          $name = fonts_od_fontyourface_get_name($build['#fonts'][$key]['file path']);
+          $ops[] = l(t('Extra'), 'admin/appearance/fontyourface/edit/' . $build['#fonts'][$key]['file path'], array(
+            'query' => drupal_get_destination(),
+          ));
+          switch ($font->provider) {
+            case 'typekit_api':
+              $build['#rows'][$key]['data']['provider'] = l(t('Typekit'), 'https://typekit.com/');
+              break;
+          }
+          $build['#rows'][$key]['data']['ops'] .= ' ' . implode(' ', $ops);
+          break;
+      }
+
+    }
+  }
+}

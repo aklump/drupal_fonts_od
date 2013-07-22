@@ -1,0 +1,80 @@
+<?php
+/**
+ * @file
+ * Handles installation steps for fonts_od
+ *
+ * @ingroup func_search
+ * @{
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function fonts_od_schema() {
+  $schema = array();
+
+  $schema['fonts_od'] = array(
+    'description' => t('Contains On-Demand Font overrides.'),
+    'fields' => array(
+      'name' => array(
+        'description' => t('Unique font name'),
+        'type' => 'varchar',
+        'length' => 50,
+      ),
+      'title' => array(
+        'description' => t('Unique font name'),
+        'type' => 'varchar',
+        'length' => 50,
+      ),
+      'family' => array(
+        'description' => t('Generic font family'),
+        'type' => 'varchar',
+        'length' => 50,
+      ),
+      'fallback' => array(
+        'description' => t('Font fallback list'),
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    'indexes' => array(
+      'name' => array('name'),
+    ),
+    'primary key' => array('name'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function fonts_od_uninstall() {
+  $vars = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'fonts_od%', 'LIKE')
+    ->execute()->fetchCol();
+  foreach ($vars as $var) {
+    variable_del($var);
+  }
+  db_delete('block')
+    ->condition('module', 'fonts_od')
+    ->execute();
+  db_delete('block_role')
+    ->condition('module', 'fonts_od')
+    ->execute();
+}
+
+/**
+ * Install the new schema for the font overrides
+ */
+function fonts_od_update_7001(&$sandbox) {
+  try {
+    drupal_install_schema('fonts_od');
+  }
+  catch (Exception $e) {
+    throw new DrupalUpdateException('FAILED: Install the new schema for the font overrides');
+  }
+}
+
+/** @} */ //end of group fonts_od

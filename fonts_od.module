@@ -40,7 +40,7 @@ function fonts_od_permission() {
  * Implements hook_menu().
  */
 function fonts_od_menu() {
-  $items['admin/appearance/fonts'] = array(
+  $items['admin/appearance/fonts-od'] = array(
     'title' => 'On-Demand Fonts',
     'description' => 'View information about registered on-demand fonts',
     'page callback' => 'fonts_od_fonts_page',
@@ -48,16 +48,16 @@ function fonts_od_menu() {
     'type' => MENU_NORMAL_ITEM,
     'file' => 'includes/fonts_od.pages.inc',
   );
-  $items['admin/appearance/fonts/%'] = array(
+  $items['admin/appearance/fonts-od/%'] = array(
     'title callback' => '_fonts_od_menu_details_title',
     'title arguments' => array(3),
     'title' => 'Details',
-    'description' => 'View detailed font information',
-    'page callback' => 'fonts_od_font_detail_page',
-    'page arguments' => array(3),
+    'description' => 'Administer font information',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fonts_od_edit_form', 3),
     'access arguments' => array('fonts_od:view'),
     'type' => MENU_NORMAL_ITEM,
-    'file' => 'includes/fonts_od.pages.inc',
+    'file' => 'includes/fonts_od.admin.inc',
   );
   return $items;
 }
@@ -79,7 +79,7 @@ function _fonts_od_menu_details_title($name) {
  *
  * @return array
  *
- * @see hook_fonts_od_defaults_alter().
+ * @see hook_fonts_od_defaults_alter()
  */
 function fonts_od_defaults() {
   $defaults = array(
@@ -91,9 +91,14 @@ function fonts_od_defaults() {
       'embedded-opentype' => '.eot',
     ),
     'fallbacks' => array(
-      'serif'       => array('Times New Roman', 'Georgia', 'serif'),
-      'sans-serif'  => array('Arial', 'Verdana', 'san-serif'),
-      'monospace'   => array('Courier New', 'Lucida Console', 'monospace'),
+      'serif'         => array('Times New Roman', 'Georgia', 'serif'),
+      'sans-serif'    => array('Arial', 'Verdana', 'san-serif'),
+      'monospace'     => array('Courier New', 'Lucida Console', 'Courier', 'monospace'),
+      'slab-serif'    => array('Courier New', 'Courier', 'serif'),
+      'blackletter'   => array('Times New Roman', 'Georgia', 'serif'),
+      'script'        => array('Comic Sans MS', 'cursive', 'sans-serif'),
+      'hand'          => array('Comic Sans MS', 'cursive', 'sans-serif'),
+      'decorative'    => array('Impact', 'Charcoal', 'sans-serif'),
     ),
   );
   drupal_alter('fonts_od_defaults', $defaults);
@@ -187,6 +192,38 @@ function fonts_od_get_font($name) {
 }
 
 /**
+ * Load a font override from the database
+ *
+ * @param string $name
+ *   The machine name of the font
+ *
+ * @return array
+ */
+function fonts_od_load($name) {
+  $record = db_select('fonts_od', 'f')
+    ->fields('f', array('name', 'title', 'family', 'fallback'))
+    ->condition('name', $name)
+    ->execute()->fetchAssoc();
+  return $record ? $record : array();
+}
+
+/**
+ * Store user-overrides for a font
+ */
+function fonts_od_save($info) {
+  if (!isset($info['name'])) {
+    return FALSE;
+  }
+  if (fonts_od_load($info['name'])) {
+    drupal_write_record('fonts_od', $info, 'name');
+  }
+  else {
+    drupal_write_record('fonts_od', $info);
+  }
+  cache_clear_all('fonts_od:fonts', 'cache');
+}
+
+/**
  * Return all fonts available to be used on-demand
  *
  * @return array
@@ -209,6 +246,22 @@ function fonts_od_fonts() {
     $defaults = fonts_od_defaults();
     $info     = module_invoke_all('fonts_od_info');
     drupal_alter('fonts_od_info', $info);
+
+    // Apply database overrides
+    foreach ($info as $key => $i) {
+      if ($overrides = fonts_od_load($i['name'])) {
+
+        // Font family fallbacks
+        $info[$key]['font-family']  = explode(',', $info[$key]['font-family']);
+        $overrides['fallback']      = explode(',', $overrides['fallback']);
+        $info[$key]['font-family']  = array_merge($info[$key]['font-family'], $overrides['fallback']);
+        $info[$key]['font-family']  = fonts_od_implode($info[$key]['font-family']);
+        unset($overrides['fallback']);
+
+
+        $info[$key] = $overrides + $info[$key];
+      }
+    }
 
     $fonts = array();
     foreach ($info as $i) {
@@ -266,49 +319,6 @@ function fonts_od_fonts() {
 }
 
 /**
- * Implements hook_fonts_od_info().
- *
- * Implicitly provide font information
- *
- * @return array
- *   Keys are the basename!
- *   - download url: where the font was sourced from
- *   - name: the machine name
- *   - title: the human title, also becomes the font family
- *   - family: FONTS_OD_SANS_SERIF, FONTS_OD_SERIF, FONTS_OD_MONOSPACE
- *   - basename: the basename of the font without extension
- *   - file path: (Optional) This defaults to a folder called 'fonts' inside the
-     active theme. Use this if you need to specific a different location for your
-     font.
- */
-function fonts_od_fonts_od_info() {
-  $info = &drupal_static(__FUNCTION__, array());
-  if (empty($info)) {
-    if (module_exists('fontyourface')) {
-      $fonts = fontyourface_get_fonts('enabled = 1');
-      foreach ($fonts as $font) {
-        $meta = unserialize($font->metadata);
-        $machine = pathinfo($font->url);
-        $machine = $machine['basename'];
-        $info[$machine] = array(
-          'module' => 'fontyourface',
-          'download url' => $font->url,
-          'name' => $machine,
-          'title' => $font->name,
-          'family' => '',
-          'basename' => '',
-          'file path' => $font->fid,
-          'font-weight' => $font->css_weight,
-          'font-style' => $font->css_style,
-          'font-family' => $font->css_family,
-        );
-      }
-    }
-  }
-  return $info;
-}
-
-/**
  * Add a font by name, title or font-family string
  *
  * @param string $font
@@ -320,7 +330,7 @@ function fonts_od_fonts_od_info() {
      "Fontin Sans Small Caps", Arial, Georgia, sans-serif
  *
  * @return $string or FALSE
- *   The string is the font-family directive including fallback fonts
+ *   The string is the style directive including fallback fonts, style and weight.
  *
  * @see fonts_od_add_font_by_machine_name()
  */
@@ -331,40 +341,46 @@ function fonts_od_add_font($font) {
         || $i['name'] == $font
         || $i['font-family'] == $font) {
 
-      switch ($i['module']) {
-        case 'fonts_od':
-          $family = explode(',', $i['font-family']);
-          $family = $family[0];
+      $processed = FALSE;
+      module_invoke_all('fonts_od_add_font', $i, $processed);
 
-          $eot  = url($i['files']['embedded-opentype']);
-          $woff = url($i['files']['woff']);
-          $ttf  = url($i['files']['truetype']);
-          $svg  = url($i['files']['svg']);
-          $id   = $i['svg_id'];
+      if (!$processed) {
+        $family = explode(',', $i['font-family']);
+        $family = $family[0];
 
-          // Generate the @font-face markup based on www.fontsquirrel.com generator
-          $output = <<<EOD
+        $eot  = url($i['files']['embedded-opentype']);
+        $woff = url($i['files']['woff']);
+        $ttf  = url($i['files']['truetype']);
+        $svg  = url($i['files']['svg']);
+        $id   = $i['svg_id'];
+
+        // Generate the @font-face markup based on www.fontsquirrel.com generator
+        $output = <<<EOD
 @font-face {
 font-family: {$family};
 src: url('{$eot}');
 src: url('{$eot}?#iefix') format('embedded-opentype'),
-   url('{$woff}') format('woff'),
-   url('{$ttf}') format('truetype'),
-   url('{$svg}#{$id}') format('svg');
+ url('{$woff}') format('woff'),
+ url('{$ttf}') format('truetype'),
+ url('{$svg}#{$id}') format('svg');
 font-weight: {$i['font-weight']};
 font-style: {$i['font-style']};
 }
 EOD;
-          drupal_add_css($output, 'inline');
-          break;
-
-        case 'fontyourface':
-          $font = fontyourface_get_font($i['file path']);
-          fontyourface_font_registry($font);
-          break;
+        drupal_add_css($output, 'inline');
       }
 
-      return $i['font-family'];
+      $style = array(
+        'font-family' => $i['font-family'],
+        'font-style'  => $i['font-style'],
+        'font-weight' => $i['font-weight'],
+      );
+
+      $return = '';
+      foreach ($style as $key => $value) {
+        $return .= "$key: $value; ";
+      }
+      return trim($return);
     }
   }
   watchdog('fonts_od', 'Font %font not found', array(
@@ -381,17 +397,19 @@ EOD;
  * @param string
  */
 function fonts_od_implode($families) {
-  foreach ($families as $key => $value) {
-    $value = trim($value);
-    if (strpos($value, ' ') !== FALSE) {
-      $families[$key] = '"' . $value . '"';
+  foreach (array_keys($families) as $key) {
+    $families[$key] = trim($families[$key], "' \"");
+    if (strpos($families[$key], ' ') !== FALSE) {
+      $families[$key] = '"' . $families[$key] . '"';
     }
   }
+  $families = array_unique($families);
+
   return implode(', ', $families);
 }
 
 /**
- * Implementation of hook_flush_caches().
+ * Implements hook_flush_caches().
  */
 function fonts_od_flush_caches() {
   fonts_od_fonts();
@@ -401,18 +419,63 @@ function fonts_od_flush_caches() {
  * Return the sass markup of a font
  *
  * @param array $font
- *   The font array
+ *   The font array; requires $font['files'] have values.
  *
  * @return string
  */
 function fonts_od_get_sass($font) {
+  if (empty($font['files'])) {
+    return '';
+  }
   //http://compass-style.org/reference/compass/css3/font_face/
   $theme = variable_get('theme_default', path_to_theme());
   foreach ($font['files'] as $key => $value) {
-    $font['files'][$key] = trim(str_replace(drupal_get_path('theme', $theme) .'/fonts', '', $value), '/');
+    $font['files'][$key] = trim(str_replace(drupal_get_path('theme', $theme) . '/fonts', '', $value), '/');
   }
 
   return <<<EOD
 @include font-face("{$font['title']}", font-files("{$font['files']['woff']}", "{$font['files']['truetype']}", "{$font['files']['svg']}", "{$font['files']['embedded-opentype']}"), '{$font['svg_id']}', '{$font['font-weight']}', '{$font['font-style']}');
 EOD;
+}
+
+/**
+ * Include (or return include path to) a fonts_od include file(s)
+ *
+ * @code
+ *   'file' => fonts_od_include('pages', 2),
+ * @endcode
+ *
+ * @param... string
+ *   Any number of include file keys to include
+ *   For includes/fonts_od.example.inc, set this to: example
+ * @param int $action
+ *   The final argument, if numeric is one of.  If omitted 1 is the default.
+ *   1: include the module(s)
+ *   2: return the path relative to the module, e.g., hook_menu
+ *   3: return the complete Drupal path per drupal_get_path()
+ *
+ * @return string
+ *   The path to the FIRST include file requested, but only if $return is set to TRUE
+ */
+function fonts_od_include() {
+  $includes = func_get_args();
+  if (is_numeric(end($includes))) {
+    $action = array_pop($includes);
+  }
+  else {
+    $action = 1;
+  }
+  if ($action > 1) {
+    $module = implode('.', array('includes/fonts_od', reset($includes), 'inc'));
+    switch ($action) {
+      case 3:
+        $module = drupal_get_path('module', 'fonts_od') . $module;
+        break;
+    }
+    return $module;
+  }
+  reset($includes);
+  foreach ($includes as $include_name) {
+    module_load_include('inc', 'fonts_od', 'includes/fonts_od.' . $include_name);
+  }
 }
