@@ -7,7 +7,7 @@ Here are some links related to the rationalle behind this module.
 <http://sixrevisions.com/css/font-face-web-fonts-issues/>
 
 ##Rationalle
-In our use case, we had a node field that allowed the admins to type in a font name.  Then the node would render in that font.  We used pre_process hooks and `fonts_od_add_font()` based on the node field value to include the  @font-face font.  The admins had hundreds of fonts available to them, and we never knew what they would choose, so the dynamic loading idea birthed this module.
+In our use case, we had a node field that allowed the admins to type in a font name.  Then the node would render in that font.  We used pre_process hooks and `fonts_od_include_font()` based on the node field value to include the  @font-face font.  The admins had hundreds of fonts available to them, and we never knew what they would choose, so the dynamic loading idea birthed this module.
 
 
 ##Installation
@@ -21,7 +21,7 @@ In our use case, we had a node field that allowed the admins to type in a font n
 
 
 ##Usage
-A given @font-face font is only loaded if you employ `fonts_od_add_font()` sometime during the page load.
+A given @font-face font is only loaded if you employ `fonts_od_include_font()` sometime during the page load.
 
 Here is some sample code:
 
@@ -35,10 +35,10 @@ Here is some sample code:
       $build = array();
       // Check if today is a saturday or sunday
       if (($dow = date('N')) && ($dow == 6 || $dow == 7)) {
-        $style = fonts_od_add_font('Weekend Font');  
+        $style = fonts_od_include_font('Weekend Font');  
       }
       else {
-        $style = fonts_od_add_font('Weekday Font');
+        $style = fonts_od_include_font('Weekday Font');
       }
       $build[] = array('#markup' => '<div style="' . $style . ';">' . t('This will be displayed in our chosen font based on if this is a weekend or not.') . '</div>');
       return $build;

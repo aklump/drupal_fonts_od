@@ -31,12 +31,11 @@ function fonts_od_fontyourface_fonts_od_info() {
       $meta = unserialize($font->metadata);
       $machine = fonts_od_fontyourface_get_name($font);
       $info[$machine] = array(
+        'basename' => $machine,
         'module' => 'fontyourface',
         'download url' => $font->url,
         'name' => $machine,
         'title' => $font->name,
-        'family' => '',
-        'basename' => '',
         'file path' => $font->fid,
         'font-weight' => $font->css_weight,
         'font-style' => $font->css_style,
@@ -48,19 +47,16 @@ function fonts_od_fontyourface_fonts_od_info() {
 }
 
 /**
- * Implements hook_fonts_od_add_font().
+ * Implements hook_fonts_od_include_font().
  *
  * @param array $font
- * @param bool &$processed
- *   Set this to true if your module has completed the processing of adding the
-     font; when this is true, nothing further is done by the base fonts_od
-     module.
+ *
+ * @see fonts_od_get_font()
  */
-function fonts_od_fontyourface_fonts_od_add_font(&$font, &$processed) {
+function fonts_od_fontyourface_fonts_od_include_font($font) {
   if ($font['module'] == 'fontyourface') {
     $font = fontyourface_get_font($font['file path']);
     fontyourface_font_registry($font);
-    $processed = TRUE;
   }
 }
 
@@ -92,7 +88,7 @@ function fonts_od_fontyourface_get_name($font) {
  */
 function fonts_od_fontyourface_form_fontyourface_ui_settings_form_alter(&$form, $form_state, $form_id) {
   if (module_exists('typekit_api')) {
-    $form['#submit'][] = '_fonts_od_fontyourface_prune_typekit_fonts';
+    $form['#submit'][] = '_fonts_od_fontyourface_typekit_update';
   }
 }
 
@@ -100,11 +96,12 @@ function fonts_od_fontyourface_form_fontyourface_ui_settings_form_alter(&$form, 
  * Remove any fonts stored in the database that are not currently in Typekit
    kits.
  */
-function _fonts_od_fontyourface_prune_typekit_fonts() {
+function _fonts_od_fontyourface_typekit_update($form, &$form_state) {
 
   // Get current typekit fonts from typekit.com
   $kits = typekit_api_get_kits();
   $keepers = array();
+  $families = array();
   foreach ($kits as $kit) {
 
     $kit_info = typekit_api_get_kit($kit->id);
@@ -112,7 +109,9 @@ function _fonts_od_fontyourface_prune_typekit_fonts() {
 
       foreach ($kit_info->families as $family_info) {
         foreach ($family_info->variations as $variant_index => $variant_id) {
-          $keepers[] = 'http://typekit.com/fonts/' . $family_info->slug . '#' . $variant_id;
+          $url = 'http://typekit.com/fonts/' . $family_info->slug . '#' . $variant_id;
+          $keepers[] = $url;
+          $families[$url] = $family_info->css_stack;
         }
       }
     }
@@ -132,6 +131,32 @@ function _fonts_od_fontyourface_prune_typekit_fonts() {
       ->execute();
 
     fontyourface_log('Removed Typekit variant: @url', array('@url' => $url));
+  }
+
+  // Try to gleen the generic font family from the api returns
+  $fonts = fonts_od_fonts();
+  $generic_families = fonts_od_defaults();
+  $generic_families = array_keys($generic_families['fallback']);
+  usort($generic_families, '_fonts_od_sort_by_strlen');
+  foreach ($fonts as $font) {
+    if ($font['module'] !== 'fontyourface'
+        || !empty($font['family'])
+        || !array_key_exists($font['download url'], $families)) {
+      continue;
+    }
+
+    $haystack = $families[$font['download url']];
+    $found = '';
+    foreach ($generic_families as $family) {
+      if (stristr($haystack, $family)) {
+        $record = array(
+          'name' => fonts_od_fontyourface_get_name($font['file path']),
+          'family' => $family,
+        );
+        fonts_od_save($record);
+        break;
+      }
+    }
   }
 }
 

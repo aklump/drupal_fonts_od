@@ -13,7 +13,7 @@
  * @param array &$defaults
  */
 function hook_fonts_od_defaults_alter(&$defaults) {
-  $defaults['fallbacks']['sans-serif'] = array('Arial', 'Georgia', 'san-serif');
+  $defaults['fallback']['sans-serif'] = array('Arial', 'Georgia', 'san-serif');
 }
 
 /**
@@ -27,7 +27,9 @@ function hook_fonts_od_defaults_alter(&$defaults) {
  *   - name: the machine name
  *   - title: the human title, also becomes the font family
  *   - family: FONTS_OD_SANS_SERIF, FONTS_OD_SERIF, FONTS_OD_MONOSPACE
- *   - basename: the basename of the font without extension
+ *   - fallback: an array of fonts to use for css fallbacks
+ *   - basename: the basename of the font without extension; this must be the
+     same as the key of the array element
  *   - file path: (Optional) This defaults to a folder called 'fonts' inside the
      active theme. Use this if you need to specific a different location for your
      font.
@@ -39,6 +41,7 @@ function hook_fonts_od_info() {
       'name' => 'fontin_sans_small_caps',
       'title' => 'Fontin Sans Small Caps',
       'family' => FONTS_OD_SANS_SERIF,
+      'fallback' => array(),
       'basename' => 'fontin_sans_sc_45b-webfont',
       'file path' => drupal_get_path('theme', 'gop3_theme') . '/fonts/fontin-sans',
     ),
@@ -102,17 +105,13 @@ function hook_fonts_od_fonts_alter(&$fonts) {
 }
 
 /**
- * Implements hook_fonts_od_add_font().
+ * Implements hook_fonts_od_include_font().
  *
- * Allow modules to do their own processing in response to adding a font
+ * @param array $font
  *
- * @param array &$font
- * @param bool &$processed
- *   Set this to true if your module has completed the processing of adding the
-     font; when this is true, nothing further is done by the base fonts_od
-     module.
+ * @see fonts_od_get_font()
  */
-function hook_fonts_od_add_font(&$font, &$processed) {
+function hook_fonts_od_include_font($font) {
   // Act on the adding of a font to the page
 }
 

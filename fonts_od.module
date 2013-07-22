@@ -90,7 +90,7 @@ function fonts_od_defaults() {
       'svg' => '.svg',
       'embedded-opentype' => '.eot',
     ),
-    'fallbacks' => array(
+    'fallback' => array(
       'serif'         => array('Times New Roman', 'Georgia', 'serif'),
       'sans-serif'    => array('Arial', 'Verdana', 'san-serif'),
       'monospace'     => array('Courier New', 'Lucida Console', 'Courier', 'monospace'),
@@ -200,11 +200,18 @@ function fonts_od_get_font($name) {
  * @return array
  */
 function fonts_od_load($name) {
-  $record = db_select('fonts_od', 'f')
-    ->fields('f', array('name', 'title', 'family', 'fallback'))
-    ->condition('name', $name)
-    ->execute()->fetchAssoc();
-  return $record ? $record : array();
+  try {
+    $record = db_select('fonts_od', 'f')
+      ->fields('f', array('name', 'title', 'family', 'fallback'))
+      ->condition('name', $name)
+      ->execute()->fetchAssoc();
+    if (!empty($record['name']) && $record['fallback']) {
+      $record['fallback'] = array_filter(explode(',', $record['fallback']));
+    }
+  }
+  catch (Exception $e) {
+  };
+  return !empty($record) ? $record : array();
 }
 
 /**
@@ -214,6 +221,7 @@ function fonts_od_save($info) {
   if (!isset($info['name'])) {
     return FALSE;
   }
+  $info['fallback'] = fonts_od_implode($info['fallback']);
   if (fonts_od_load($info['name'])) {
     drupal_write_record('fonts_od', $info, 'name');
   }
@@ -244,21 +252,14 @@ function fonts_od_fonts() {
 
     // Calculate the value of $fonts now...
     $defaults = fonts_od_defaults();
+
     $info     = module_invoke_all('fonts_od_info');
     drupal_alter('fonts_od_info', $info);
 
     // Apply database overrides
     foreach ($info as $key => $i) {
       if ($overrides = fonts_od_load($i['name'])) {
-
-        // Font family fallbacks
-        $info[$key]['font-family']  = explode(',', $info[$key]['font-family']);
-        $overrides['fallback']      = explode(',', $overrides['fallback']);
-        $info[$key]['font-family']  = array_merge($info[$key]['font-family'], $overrides['fallback']);
-        $info[$key]['font-family']  = fonts_od_implode($info[$key]['font-family']);
-        unset($overrides['fallback']);
-
-
+        $overrides = array_filter($overrides);
         $info[$key] = $overrides + $info[$key];
       }
     }
@@ -280,9 +281,8 @@ function fonts_od_fonts() {
           $i['files'][$type] = trim($key, '/.');
 
           //font-family
-          $i['font-family'] = $defaults['fallbacks'][$i['family']];
-          array_unshift($i['font-family'], $i['title']);
-          $i['font-family'] = fonts_od_implode($i['font-family']);
+          $i['fallback'] = $defaults['fallback'][$i['family']];
+          $i['font-family'] = $i['title'];
         }
       }
 
@@ -293,20 +293,30 @@ function fonts_od_fonts() {
         $i['svg_id'] = $found[1];
       }
 
+      // Add in the default font-family based on generic family
+      if (empty($i['fallback']) && !empty($i['family'])) {
+        $i['fallback'] = fonts_od_get_fallback($i['family']);
+      }
+
       //@todo the $i['name'] is undefined under certain conditions; fix
       $fonts[$i['name']] = $i + array(
         'module' => 'fonts_od',
         'download url' => NULL,
         'font-family' => NULL,
+        'fallback' => array(),
         'name' => NULL,
         'title' => NULL,
-        'family' => FONTS_OD_SERIF,
+        'family' => NULL,
         'basename' => NULL,
         'file path' => NULL,
         'font-style' => 'normal',
         'font-weight' => 'normal',
         'svg_id' => NULL,
       );
+
+      // Add in the fallback
+      $fonts[$i['name']]['font-family']  = array_merge(explode(',', $fonts[$i['name']]['font-family']), $fonts[$i['name']]['fallback']);
+      $fonts[$i['name']]['font-family']  = fonts_od_implode($fonts[$i['name']]['font-family']);
     }
 
     drupal_alter('fonts_od_fonts', $fonts);
@@ -316,6 +326,18 @@ function fonts_od_fonts() {
     }
   }
   return $fonts;
+}
+
+/**
+ * Return the fallback based on generic family
+ *
+ * @return array
+ *
+ * @see fonts_od_implode()
+ */
+function fonts_od_get_fallback($family) {
+  $fallback = fonts_od_defaults();
+  return isset($fallback['fallback'][$family]) ? $fallback['fallback'][$family] : array();
 }
 
 /**
@@ -332,19 +354,18 @@ function fonts_od_fonts() {
  * @return $string or FALSE
  *   The string is the style directive including fallback fonts, style and weight.
  *
- * @see fonts_od_add_font_by_machine_name()
+ * @see fonts_od_include_font_by_machine_name()
  */
-function fonts_od_add_font($font) {
+function fonts_od_include_font($font) {
   $info = fonts_od_fonts();
   foreach ($info as $i) {
     if ($i['title'] == $font
         || $i['name'] == $font
         || $i['font-family'] == $font) {
 
-      $processed = FALSE;
-      module_invoke_all('fonts_od_add_font', $i, $processed);
+      module_invoke_all('fonts_od_include_font', $i);
 
-      if (!$processed) {
+      if ($i['module'] == 'fonts_od') {
         $family = explode(',', $i['font-family']);
         $family = $family[0];
 
@@ -477,5 +498,20 @@ function fonts_od_include() {
   reset($includes);
   foreach ($includes as $include_name) {
     module_load_include('inc', 'fonts_od', 'includes/fonts_od.' . $include_name);
+  }
+}
+
+/**
+ * Used by usort to sort an array with the longest strings first
+ */
+function _fonts_od_sort_by_strlen($a, $b) {
+  if (strlen($a) > strlen($b)) {
+    return -1;
+  }
+  elseif (strlen($a) === strlen($b)) {
+    return 0;
+  }
+  else {
+    return 1;
   }
 }

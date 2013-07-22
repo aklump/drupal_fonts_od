@@ -65,11 +65,14 @@ function fonts_od_edit_form($form, &$form_state, $name) {
   );
 
   $options = fonts_od_defaults();
+  $options = array(
+    '' => t('- Choose -'),
+  ) + drupal_map_assoc(array_keys($options['fallback']));
   $form['db']['family'] = array(
     '#type' => 'select',
     '#title' => t('Generic Font Family'),
     '#default_value' => $info['family'],
-    '#options' => drupal_map_assoc(array_keys($options['fallbacks'])),
+    '#options' => $options,
     '#required' => TRUE,
   );
 
@@ -126,14 +129,7 @@ function fonts_od_edit_form_submit($form, &$form_state) {
       )));
       break;
     default:
-
-      if (empty($form_state['values']['db']['fallback'])
-          && ($fallbacks = fonts_od_defaults())
-          && (isset($fallbacks['fallbacks'][$form_state['values']['db']['family']]))) {
-        $fallbacks = $fallbacks['fallbacks'][$form_state['values']['db']['family']];
-        $form_state['values']['db']['fallback'] = fonts_od_implode($fallbacks);
-      }
-
+      $form_state['values']['db']['fallback'] = array_filter(explode(',', $form_state['values']['db']['fallback']));
       fonts_od_save($form_state['values']['db']);
       drupal_set_message(t('The overridden values have been saved.'));
       break;
