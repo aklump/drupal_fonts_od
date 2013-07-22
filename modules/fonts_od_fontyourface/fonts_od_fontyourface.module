@@ -133,31 +133,34 @@ function _fonts_od_fontyourface_typekit_update($form, &$form_state) {
     fontyourface_log('Removed Typekit variant: @url', array('@url' => $url));
   }
 
-  // Try to gleen the generic font family from the api returns
-  $fonts = fonts_od_fonts();
-  $generic_families = fonts_od_defaults();
-  $generic_families = array_keys($generic_families['fallback']);
-  usort($generic_families, '_fonts_od_sort_by_strlen');
-  foreach ($fonts as $font) {
-    if ($font['module'] !== 'fontyourface'
-        || !empty($font['family'])
-        || !array_key_exists($font['download url'], $families)) {
-      continue;
-    }
-
-    $haystack = $families[$font['download url']];
-    $found = '';
-    foreach ($generic_families as $family) {
-      if (stristr($haystack, $family)) {
-        $record = array(
-          'name' => fonts_od_fontyourface_get_name($font['file path']),
-          'family' => $family,
-        );
-        fonts_od_save($record);
-        break;
-      }
-    }
-  }
+  // This gives a false impression of success, most families have a serif
+  // fallback which is not a specific enough font-family to warrant an auto
+  // detect. -aklump
+  //// Try to gleen the generic font family from the api returns
+  //$fonts = fonts_od_fonts();
+  //$generic_families = fonts_od_defaults();
+  //$generic_families = array_keys($generic_families['fallback']);
+  //usort($generic_families, '_fonts_od_sort_by_strlen');
+  //foreach ($fonts as $font) {
+  //  if ($font['module'] !== 'fontyourface'
+  //      || !empty($font['family'])
+  //      || !array_key_exists($font['download url'], $families)) {
+  //    continue;
+  //  }
+  //
+  //  $haystack = $families[$font['download url']];
+  //  $found = '';
+  //  foreach ($generic_families as $family) {
+  //    if (stristr($haystack, $family)) {
+  //      $record = array(
+  //        'name' => fonts_od_fontyourface_get_name($font['file path']),
+  //        'family' => $family,
+  //      );
+  //      fonts_od_save($record);
+  //      break;
+  //    }
+  //  }
+  //}
 }
 
 /**
