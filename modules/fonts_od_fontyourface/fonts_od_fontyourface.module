@@ -161,6 +161,8 @@ function _fonts_od_fontyourface_typekit_update($form, &$form_state) {
   //    }
   //  }
   //}
+
+  cache_clear_all('fonts_od:fonts', 'cache');
 }
 
 /**
