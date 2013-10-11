@@ -26,6 +26,8 @@ function fonts_od_edit_form($form, &$form_state, $name) {
     return drupal_not_found();
   }
 
+  $form['#info'] = $info;
+
   // Code Export
   if ($sass = fonts_od_get_sass($info)) {
     $form['export'] = array(
@@ -70,27 +72,34 @@ function fonts_od_edit_form($form, &$form_state, $name) {
   ) + drupal_map_assoc(array_keys($options['fallback']));
   $form['db']['family'] = array(
     '#type' => 'select',
-    '#title' => t('Generic Font Family'),
+    '#title' => t('Generic font family'),
     '#default_value' => $info['family'],
     '#options' => $options,
     '#required' => TRUE,
   );
 
-  //'disabled'=>array(
-  //  ':input[name=device]' => $non_uuid_devices,
-  //),
-
   $fallback = explode(',', $info['font-family']);
   foreach (array_keys($fallback) as $key) {
     $fallback[$key] = trim($fallback[$key]);
   }
+  $default = array_shift($fallback);
+
+
+  // This appears to be more problematic than I thought, getting the font-family
+  // name to change via all the apis. So scraping for now.
+  //$form['db']['css_name'] = array(
+  //  '#type' => 'textfield',
+  //  '#title' => t('Font-family name'),
+  //  '#default_value' => empty($info['css_name']) ? $default : $info['css_name'],
+  //  '#required' => TRUE,
+  //);
+
   $form['db']['fallback'] = array(
     '#type' => 'textfield',
     '#description' => t('List out the <a href="@url">fallback fonts</a>, comma-separated for this font. <strong>Leave blank for defaults by Generic Font Family.</strong>', array(
       '@url' => url('http://www.w3schools.com/cssref/css_websafe_fonts.asp'),
     )),
-    '#title' => t('Font-family Fallback List'),
-    '#field_prefix' => array_shift($fallback) . ', ',
+    '#title' => t('Font-family fallback list'),
     '#default_value' => fonts_od_implode($fallback),
   );
 
@@ -105,7 +114,7 @@ function fonts_od_edit_form($form, &$form_state, $name) {
       '#type' => 'submit',
       '#name' => 'revert',
       '#value' => t('Revert to Defaults'),
-      '#limit_validation_erros' => array(),
+      '#limit_validation_errors' => array(),
     );
   }
 
@@ -122,10 +131,10 @@ function fonts_od_edit_form_submit($form, &$form_state) {
   switch ($form_state['clicked_button']['#name']) {
     case 'revert':
       db_delete('fonts_od')
-        ->condition('name', $form_state['values']['db']['name'])
+        ->condition('name', $form['#info']['name'])
         ->execute();
       drupal_set_message(t('The overridden values for %name have been removed.', array(
-        '%name' => $form_state['values']['db']['title'],
+        '%name' => $form['#info']['title'],
       )));
       cache_clear_all('fonts_od:fonts', 'cache');
       break;

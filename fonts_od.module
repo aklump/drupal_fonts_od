@@ -203,14 +203,26 @@ function fonts_od_load($name) {
   try {
     $record = db_select('fonts_od', 'f')
       ->fields('f', array('name', 'title', 'family', 'fallback'))
+      //->fields('f', array('name', 'title', 'family', 'fallback', 'css_name'))
       ->condition('name', $name)
       ->execute()->fetchAssoc();
-    if (!empty($record['name']) && $record['fallback']) {
-      $record['fallback'] = array_filter(explode(',', $record['fallback']));
+    if (!empty($record['name'])) {
+      if ($record['fallback']) {
+        $record['fallback'] = array_filter(explode(',', $record['fallback']));
+      }
+      //// Couldn't use field alias in db_select because of the hyphen
+      //if (!empty($record['css_name'])) {
+      //  $record['font-family'] = $record['css_name'];
+      //}
+      //unset($record['css_name']);
     }
   }
   catch (Exception $e) {
+    watchdog_exception('fonts_od', $e, "Couldn't load font: %name", array(
+      '%name' => $name,
+    ));
   };
+
   return !empty($record) ? $record : array();
 }
 

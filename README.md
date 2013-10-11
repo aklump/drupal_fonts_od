@@ -16,8 +16,14 @@ In our use case, we had a node field that allowed the admins to type in a font n
 
 
 ##Configuration
+### With the fontyourface module
+1. Enable fonts_od_fontyourface module.
+2. Visit this page `admin/appearance/fonts-od` and edit the fonts as needed.
+3. Start using the module.
+
+### Using font face font files
 2. Place the fonts that you wish to use inside a folder called `fonts` in your theme.  Try to include all four common variants: `.woff`, `.ttf`, `.svg`, `.eot`.  The fonts may also live elsewhere, see `hook_fonts_od_fonts()`.
-1. You must invoke `hook_fonts_od_fonts()` to inform this module of the fonts available to Drupal.
+1. You must invoke `hook_fonts_od_info()` to inform this module of the fonts available to Drupal.
 
 
 ##Usage
