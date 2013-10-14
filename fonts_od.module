@@ -45,7 +45,7 @@ function fonts_od_menu() {
     'description' => 'View information about registered on-demand fonts',
     'page callback' => 'fonts_od_fonts_page',
     'access arguments' => array('fonts_od:view'),
-    'type' => MENU_NORMAL_ITEM,
+    'type' => MENU_LOCAL_TASK,
     'file' => 'includes/fonts_od.pages.inc',
   );
   $items['admin/appearance/fonts-od/%'] = array(
@@ -56,7 +56,7 @@ function fonts_od_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fonts_od_edit_form', 3),
     'access arguments' => array('fonts_od:view'),
-    'type' => MENU_NORMAL_ITEM,
+    'type' => MENU_CALLBACK,
     'file' => 'includes/fonts_od.admin.inc',
   );
   return $items;
