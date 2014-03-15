@@ -19,7 +19,7 @@ function hook_fonts_od_defaults_alter(&$defaults) {
 /**
  * Implements hook_fonts_od_info().
  *
- * Implicitly provide font information
+ * Provide font information directly
  *
  * @return array
  *   Keys are the basename! This should be unique from all fonts.
@@ -29,10 +29,10 @@ function hook_fonts_od_defaults_alter(&$defaults) {
  *   - family: FONTS_OD_SANS_SERIF, FONTS_OD_SERIF, FONTS_OD_MONOSPACE
  *   - fallback: an array of fonts to use for css fallbacks
  *   - basename: the basename of the font without extension; this must be the
-     same as the key of the array element
+ *   same as the key of the array element
  *   - file path: (Optional) This defaults to a folder called 'fonts' inside the
-     active theme. Use this if you need to specific a different location for your
-     font.
+ *   active theme. Use this if you need to specific a different location for your
+ *   font.
  */
 function hook_fonts_od_info() {
   return array(
@@ -52,13 +52,18 @@ function hook_fonts_od_info() {
  * Implements hook_fonts_od_info_alter(&$info).
  *
  * Set the correct font family of auto-detected fonts. Alter the information
-   provided by modules about available fonts.
-
-   @param array &$info
+ * provided by modules about available fonts.
+ *
+ * @param array &$info
  */
 function hook_fonts_od_info_alter(&$info) {
+  
+  // Give the font family a new name (from it's auto-detected one) to use in
+  // your css declarations.
+  $info['OpenSans-CondLight-webfont']['title'] = 'Open Sans Narrow';
+
+  // Set the font family type on an auto-detected font
   $info['Enriqueta-Bold-webfont']['family'] = FONTS_OD_SERIF;
-  $info['Enriqueta-Regular-webfont']['family'] = FONTS_OD_SERIF;
 }
 
 /**

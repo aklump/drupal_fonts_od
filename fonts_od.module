@@ -250,15 +250,13 @@ function fonts_od_save($info) {
  *   Keyed by font machine name
  */
 function fonts_od_fonts() {
-  if (($caching = variable_get('cache', FALSE))) {
-    if ($cache = cache_get('fonts_od:fonts', 'cache')) {
-      $fonts = empty($cache->data) ? NULL : $cache->data;
-    }
-    else {
-      // Set the default values
-      $fonts = array();
-      $cache = (object) array('data' => array());
-    }
+  if ($cache = cache_get('fonts_od:fonts', 'cache')) {
+    $fonts = empty($cache->data) ? NULL : $cache->data;
+  }
+  else {
+    // Set the default values
+    $fonts = array();
+    $cache = (object) array('data' => array());
   }
   if (empty($fonts)) {
 
@@ -270,6 +268,9 @@ function fonts_od_fonts() {
 
     // Apply database overrides
     foreach ($info as $key => $i) {
+      if (empty($i['name'])) {
+        continue;
+      }
       if ($overrides = fonts_od_load($i['name'])) {
         $overrides = array_filter($overrides);
         $info[$key] = $overrides + $info[$key];
@@ -277,10 +278,19 @@ function fonts_od_fonts() {
     }
 
     $fonts = array();
-    foreach ($info as $i) {
+    foreach ($info as $key => $i) {
+      
+      // This is invalid without a machine name.
+      if (empty($i['name'])) {
+        continue;
+      }
+
       $i += array_intersect_key($defaults, array_flip(array('file path')));
       $ext = implode('|', $defaults['formats']);
-      $files = file_scan_directory('./' . $i['file path'], '/(' . $ext . ')$/');
+      $files = array();
+      if (!empty($i['file path'])) {
+        $files = file_scan_directory('./' . $i['file path'], '/(' . $ext . ')$/');
+      }
       $i['extensions'] = array();
       foreach ($files as $key => $data) {
         if ($data->name !== $i['basename']) {
@@ -333,10 +343,9 @@ function fonts_od_fonts() {
 
     drupal_alter('fonts_od_fonts', $fonts);
 
-    if ($caching) {
-      cache_set('fonts_od:fonts', $fonts, 'cache', CACHE_PERMANENT);
-    }
+    cache_set('fonts_od:fonts', $fonts, 'cache', CACHE_PERMANENT);
   }
+  
   return $fonts;
 }
 
@@ -357,11 +366,11 @@ function fonts_od_get_fallback($family) {
  *
  * @param string $font
  *   The human title of a font or the font-family declaration; all of these are
-     valid:
-
-     fontin_sans_small_caps
-     Fontin Sans Small Caps
-     "Fontin Sans Small Caps", Arial, Georgia, sans-serif
+ *   valid:
+ *
+ *   fontin_sans_small_caps
+ *   Fontin Sans Small Caps
+ *   "Fontin Sans Small Caps", Arial, Georgia, sans-serif
  *
  * @return $string or FALSE
  *   The string is the style directive including fallback fonts, style and weight.
