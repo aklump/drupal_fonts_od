@@ -32,7 +32,7 @@ function fonts_od_edit_form($form, &$form_state, $name) {
   if ($sass = fonts_od_get_sass($info)) {
     $form['export'] = array(
       '#type' => 'fieldset',
-      '#title' => t('CSS/SASS'),
+      '#title' => t('Compass'),
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
     );

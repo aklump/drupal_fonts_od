@@ -402,9 +402,9 @@ function fonts_od_include_font($font) {
 font-family: {$family};
 src: url('{$eot}');
 src: url('{$eot}?#iefix') format('embedded-opentype'),
- url('{$woff}') format('woff'),
- url('{$ttf}') format('truetype'),
- url('{$svg}#{$id}') format('svg');
+     url('{$woff}') format('woff'),
+     url('{$ttf}') format('truetype'),
+     url('{$svg}#{$id}') format('svg');
 font-weight: {$i['font-weight']};
 font-style: {$i['font-style']};
 }
@@ -474,9 +474,18 @@ function fonts_od_get_sass($font) {
   foreach ($font['files'] as $key => $value) {
     $font['files'][$key] = trim(str_replace(drupal_get_path('theme', $theme) . '/fonts', '', $value), '/');
   }
-
   return <<<EOD
-@include font-face("{$font['title']}", font-files("{$font['files']['woff']}", "{$font['files']['truetype']}", "{$font['files']['svg']}", "{$font['files']['embedded-opentype']}"), '{$font['svg_id']}', '{$font['font-weight']}', '{$font['font-style']}');
+@include font-face("{$font['title']}",
+  font-files(
+    "{$font['files']['woff']}",
+    "{$font['files']['truetype']}",
+    "{$font['files']['svg']}",
+    "{$font['files']['embedded-opentype']}"
+  ),
+  '{$font['files']['embedded-opentype']}',
+  '{$font['font-weight']}',
+  '{$font['font-style']}'
+);
 EOD;
 }
 
